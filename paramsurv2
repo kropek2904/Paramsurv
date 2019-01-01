@@ -1,0 +1,44 @@
+library(survival)
+library("SurvRegCensCov")
+formula<-Surv(time,status)~ph.ecog+sex+age
+data<-lung
+#to sa wspolczynniki dla aft!
+weibullModel<-survreg(formula,data=data,dist="weibull")
+#wspolczynniki dla modelu ph
+weib.coef.all<-weibullModel$coefficients
+#select coefficients:
+weib.coef<-weib.coef.all[2:4]
+weib.coef<--weib.coef/weibullModel$scale
+#model selection
+WeibullModelStep <- step(weibullModel)
+#lognormal
+lognormalModel<- survreg(formula,data, dist="lognormal")
+
+#Lambda and gamma are scale and shape parameters 
+ConvertWeibull(weibullModel,conf.level=0.95)
+#alternative
+weibull.alt<-weibreg(formula,data=data)
+#par(mfrow=c(2,3))
+#plot(weibull.alt,fn=c("sur"))
+#adequacy of weibull model
+WeibullAdequacy<-WeibullDiag(Surv(time,status)~sex,data=data)
+library("eha")
+#mozna stratyfikowac z roznym parametrem scale and shape !
+phreg.weibull<-phreg(formula,data,dist="weibull")
+coxreg.weibull<-coxreg(formula,data)
+check.dist(coxreg.weibull,phreg.weibull)
+
+#piecewise exponential distribution 
+phreg.exp<-phreg(formula,data,dist="pch",cuts=5)
+check.dist(coxreg.weibull,phreg.exp)
+
+
+library("flexsurv")
+fitg <- flexsurvreg(formula = Surv(time,status) ~ 1, data = data, dist="gengamma")
+fitw <- flexsurvreg(formula = Surv(time,status) ~ 1, data = data, dist="weibull")
+plot(fitg)
+plot(fitw, col="blue")
+
+library("pch")
+#piecewise exponential distribution 
+
