@@ -1,0 +1,90 @@
+library(survival)
+library("SurvRegCensCov")
+formula<-Surv(time,status)~ph.ecog+sex+age
+data<-lung[1:200,]
+
+###Weibull distribution in two ways: 
+ 
+result.surv <- survfit(Surv(time,status) ~ 1,data=data)
+result.summ <- summary(result.surv, time=c(28, 84))
+t.vec <- result.summ$time
+s.vec <- result.summ$surv
+data.frame(t.vec, s.vec)
+
+library("Hmisc")
+pharmWeib <- Weibull2(t.vec, s.vec)
+t.vals <- 1:nrow(data)
+s.vals <- pharmWeib(t.vals)
+
+model.basic <- survreg(Surv(time, status) ~ 1,
+                                  dist="weibull",data )
+mu.hat <- model.basic$coefficients
+sigma.hat <- model.basic$scale
+lambda.hat <- exp(-mu.hat) # " 1 / scale"
+alpha.hat <- 1/sigma.hat # "shape"
+s.mle.vals <- 1 - pweibull(t.vals, shape=alpha.hat,
+                           scale=1/lambda.hat)
+
+plot(result.surv, conf.int=F, xlab="Days to relapse",
+     ylab="Survival probability")
+lines(s.mle.vals ~ t.vals, col="blue")
+lines(s.vals ~ t.vals, col="red")
+points(t.vec, s.vec, col="red")
+
+
+#to sa wspolczynniki dla aft!
+weibullModel<-survreg(formula,data=data,dist="weibull")
+#wspolczynniki dla modelu ph
+weib.coef.all<-weibullModel$coefficients
+#select coefficients:
+weib.coef<-weib.coef.all[2:4]
+weib.coef<--weib.coef/weibullModel$scale
+#model selection
+WeibullModelStep <- step(weibullModel)
+
+#analysis of residuals
+resid.deviance <- residuals(weibullModel, type="deviance")
+par(mfrow=c(2,2))
+plot(resid.deviance ~ data$age)
+smoothSEcurve(resid.deviance, age)
+title("Deviance residuals\nversus age")
+plot(resid.deviance ~ grp)
+title("Deviance residuals\nversus treatment group")
+plot(resid.deviance ~ employment)
+title("Deviance residuals\nversus employment")
+
+
+
+
+#lognormal
+lognormalModel<- survreg(formula,data, dist="lognormal")
+
+#Lambda and gamma are scale and shape parameters 
+ConvertWeibull(weibullModel,conf.level=0.95)
+#alternative
+weibull.alt<-weibreg(formula,data=data)
+#par(mfrow=c(2,3))
+#plot(weibull.alt,fn=c("sur"))
+#adequacy of weibull model
+WeibullAdequacy<-WeibullDiag(Surv(time,status)~sex,data=data) 
+
+
+library("eha")
+#mozna stratyfikowac z roznym parametrem scale and shape !
+phreg.weibull<-phreg(formula,data,dist="weibull")
+coxreg.weibull<-coxreg(formula,data)
+check.dist(coxreg.weibull,phreg.weibull)
+
+#piecewise exponential distribution 
+phreg.exp<-phreg(formula,data,dist="pch",cuts=5)
+check.dist(coxreg.weibull,phreg.exp)
+
+
+library("flexsurv")
+fitg <- flexsurvreg(formula = Surv(time,status) ~ 1, data = data, dist="gengamma")
+fitw <- flexsurvreg(formula = Surv(time,status) ~ 1, data = data, dist="weibull")
+plot(fitg)
+plot(fitw, col="blue")
+
+
+
